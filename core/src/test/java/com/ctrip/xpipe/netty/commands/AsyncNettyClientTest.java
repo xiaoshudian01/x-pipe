@@ -26,6 +26,7 @@ import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.nio.charset.Charset;
@@ -58,20 +59,21 @@ public class AsyncNettyClientTest extends AbstractTest {
         server = startEchoServer();
     }
 
-//    @Test
+    @Ignore
+    @Test
     public void testFutureSend() {
-        ChannelFuture future = b.connect("localhost", server.getPort());
+        ChannelFuture future = b.connect("127.0.0.1", server.getPort());
         int N = 1000;
         for(int i = 0; i < N; i++) {
             if (future.isSuccess()) {
-                logger.info("[success]");
+//                logger.info("[success]");
                 future.channel().writeAndFlush("success" + i + "\r\n");
             } else {
-                int finalI = i;
+                final int finalI = i;
                 future.addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
-                        logger.info("[listener]");
+//                        logger.info("[listener]");
                         future.channel().writeAndFlush("listener " + finalI + "\r\n");
                     }
                 });
@@ -81,7 +83,8 @@ public class AsyncNettyClientTest extends AbstractTest {
         sleep(1000 * 10);
     }
 
-//    @Test
+    @Ignore
+    @Test
     public void testSendActive() {
         ChannelFuture future = b.connect("10.5.111.145", 6379);
         int N = 1000;
