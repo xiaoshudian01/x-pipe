@@ -9,6 +9,8 @@ import com.ctrip.xpipe.observer.AbstractLifecycleObservable;
 import com.ctrip.xpipe.redis.core.console.ConsoleService;
 import com.ctrip.xpipe.redis.core.entity.*;
 import com.ctrip.xpipe.redis.core.meta.DcMetaManager;
+import com.ctrip.xpipe.redis.core.meta.MetaComparator;
+import com.ctrip.xpipe.redis.core.meta.comparator.ClusterMetaComparator;
 import com.ctrip.xpipe.redis.core.meta.comparator.DcMetaComparator;
 import com.ctrip.xpipe.redis.core.meta.comparator.DcRouteMetaComparator;
 import com.ctrip.xpipe.redis.core.meta.impl.DefaultDcMetaManager;
@@ -135,7 +137,7 @@ public class DefaultDcMetaCache extends AbstractLifecycleObservable implements D
 		DcMetaComparator dcMetaComparator = new DcMetaComparator(current, future);
 		dcMetaComparator.compare();
 
-		if (dcMetaComparator.totalChangedCount() > META_MODIFY_PROTECT_COUNT) {
+		if (dcMetaComparator.totalChangedCount() - drClusterNums(dcMetaComparator) > META_MODIFY_PROTECT_COUNT) {
 			logger.error("[run][modify count size too big]{}, {}, {}", META_MODIFY_PROTECT_COUNT,
 					dcMetaComparator.totalChangedCount(), dcMetaComparator);
 			EventMonitor.DEFAULT.logAlertEvent("remove too many:" + dcMetaComparator.totalChangedCount());
@@ -153,6 +155,20 @@ public class DefaultDcMetaCache extends AbstractLifecycleObservable implements D
 			);
 			notifyObservers(dcMetaComparator);
 		}
+	}
+
+	private int drClusterNums(DcMetaComparator comparator) {
+		int result = 0;
+		for(MetaComparator metaComparator : comparator.getMofified()) {
+			ClusterMetaComparator clusterMetaComparator = (ClusterMetaComparator) metaComparator;
+			ClusterMeta current = clusterMetaComparator.getCurrent(), future = clusterMetaComparator.getFuture();
+			if(!future.getActiveDc().equalsIgnoreCase(current.getActiveDc())) {
+				EventMonitor.DEFAULT.logEvent(META_CHANGE_TYPE, String.format("[migrate: %s]", future.getId()));
+				result ++;
+			}
+		}
+		logger.info("[DR Switched][cluster num] {}", result);
+		return result;
 	}
 
 	@VisibleForTesting
